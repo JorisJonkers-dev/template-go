@@ -19,7 +19,7 @@ from [`repo-template`](https://github.com/JorisJonkers-dev/repo-template).
 | `Taskfile.yml` | `gen`, `gen:check`, `lint`, `test`, `build`, `secrets`, and `check` (everything CI runs) |
 | `.golangci.yml` | golangci-lint v2 with gofumpt and goimports; zero issues required |
 | `Dockerfile` | Multi-stage, static binary on `distroless/static:nonroot` |
-| `.github/workflows/ci.yml` | One job, `Pipeline Complete`: `mise exec -- task check`, then `docker build` |
+| `.github/workflows/ci.yml` | One parallel job per `task check` task, and one for `docker build`; `Pipeline Complete`, the one required check, passes when all do |
 | `.github/workflows/release.yml`, `release-please-config.json`, `.release-please-manifest.json` | release-please, as in the rest of the estate |
 | `deploy/template-go.project.yml` | A [deploy-kit](https://github.com/JorisJonkers-dev/deploy-kit) Project Intent for one stateless HTTP service |
 
