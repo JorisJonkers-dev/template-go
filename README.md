@@ -15,16 +15,25 @@ from [`repo-template`](https://github.com/JorisJonkers-dev/repo-template).
 |------|------------|
 | `cmd/template-go/` | The binary: reads `ADDR` (default `:8080`), logs JSON with `slog`, drains on `SIGTERM` |
 | `internal/server/` | The HTTP surface: `/healthz`, `/readyz`, graceful shutdown; unit tests |
+| `cmd/template-go/behaviour_integration_test.go` | An integration test behind the `integration` build tag: the service over real HTTP, stopped by a real `SIGTERM` |
+| `scripts/coverage.sh` | The unit and integration coverage gates |
 | `mise.toml` | Pins Go, task, golangci-lint, actionlint and gitleaks; `mise install` is the only setup |
-| `Taskfile.yml` | `gen`, `gen:check`, `lint`, `test`, `build`, `secrets`, and `check` (everything CI runs) |
+| `Taskfile.yml` | `gen`, `gen:check`, `lint`, `test`, `test:integration`, `build`, `secrets`, and `check` (everything CI runs) |
 | `.golangci.yml` | golangci-lint v2 with gofumpt and goimports; zero issues required |
 | `Dockerfile` | Multi-stage, static binary on `distroless/static:nonroot` |
-| `.github/workflows/ci.yml` | One parallel job per `task check` task, and one for `docker build`; `Pipeline Complete`, the one required check, passes when all do |
+| `.github/workflows/ci.yml` | One parallel job per `task check` task, one for `docker build`, the quarantine check, and the mutation report on pull requests; `Pipeline Complete`, the one required check, passes when all but the report do |
 | `.github/workflows/release.yml`, `release-please-config.json`, `.release-please-manifest.json` | release-please, as in the rest of the estate |
 | `deploy/template-go.project.yml` | A [deploy-kit](https://github.com/JorisJonkers-dev/deploy-kit) Project Intent for one stateless HTTP service |
 
-`task test` runs the race detector and fails below 80% statement coverage (`COVERAGE_MIN` in
-`Taskfile.yml`); the sample code sits at about 87%. `task gen` runs `go generate ./...` and
+Tests follow the estate
+[testing standard](https://github.com/JorisJonkers-dev/workspace/blob/main/docs/testing-standards.md):
+each test checks one behaviour and is named as it, and `task lint` runs `testlint` to hold names and
+tables to that. `task test` runs the unit tests with the race detector and fails unless they reach
+every statement, branch and condition (gobco) and every function; `main()` is left out, being
+`os.Exit` around `start`. `task test:integration` adds the tests behind the `integration` build tag
+and fails unless every function is reached. Plain `go test ./...` runs only the unit tests.
+Tests never retry: a flaky test is fixed, or skipped with
+`quarantine: <issue-url> until YYYY-MM-DD` for at most 14 days, which CI checks. `task gen` runs `go generate ./...` and
 `task gen:check` fails on a dirty or untracked result. Nothing generates yet, so both are no-ops.
 
 [`go-commons`](https://github.com/JorisJonkers-dev/go-commons) is used where it applies. It has no
@@ -45,7 +54,7 @@ packages yet, so the template does not depend on it.
 
 ```bash
 mise install    # the pinned toolchain
-task check      # lint, gen:check, tests with coverage, build, secret scan
+task check      # lint, gen:check, unit and integration tests with coverage, build, secret scan
 docker build -t template-go .
 ```
 

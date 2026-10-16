@@ -27,7 +27,7 @@ jobs:
       # Every failure is reported, not only the first.
       fail-fast: false
       matrix:
-        task: [lint, gen:check, test, build, secrets]
+        task: [lint, gen:check, test, test:integration, build, secrets]
     steps:
       - uses: actions/checkout@v7
 
@@ -62,12 +62,28 @@ jobs:
           # shellcheck disable=SC2086 # ARGS is a list of options, split on purpose
           docker build --build-arg VERSION=ci $ARGS -t "$IMAGE:ci" .
 
+  # A skipped test whose quarantine ran out, names no issue, or lasts over 14 days fails the build
+  # (workspace docs/testing-standards.md, section 7).
+  quarantine:
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@v0.27.1
+
+  # Comments the mutants that survive on the lines a pull request changes. A report; it never fails
+  # the build, so Pipeline Complete does not wait for it.
+  mutation:
+    if: ${{ github.event_name == 'pull_request' }}
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@v0.27.1
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      go-directory: .
+
   # The one required check: green only when every job above is. `always()` so a failed or
   # cancelled job still reports here, as a failure, rather than leaving the check pending.
   pipeline-complete:
     name: Pipeline Complete
     if: ${{ always() }}
-    needs: [check, images]
+    needs: [check, images, quarantine]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

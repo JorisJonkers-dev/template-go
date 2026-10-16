@@ -6,8 +6,7 @@ target/
 .gradle/
 node_modules/
 
-# Coverage output. REPO_SETUP.md step 4 makes a >=80% coverage gate mandatory,
-# so every repo produces these.
+# Coverage output; scripts/coverage.sh writes into coverage/.
 coverage/
 .nyc_output/
 *.lcov
