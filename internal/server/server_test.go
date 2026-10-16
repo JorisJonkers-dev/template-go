@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func newServer() *server.Server {
-	return server.New(slog.New(slog.DiscardHandler), "test")
+	return server.New(slog.New(slog.DiscardHandler), "test", 10*time.Second)
 }
 
 func listen(t *testing.T) net.Listener {
@@ -26,71 +27,95 @@ func listen(t *testing.T) net.Listener {
 	return ln
 }
 
-func TestProbesBeforeServing(t *testing.T) {
+func probe(t *testing.T, h http.Handler, path string) int {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
+	return rec.Code
+}
+
+func TestBeforeServingTheServiceIsAliveButNotReady(t *testing.T) {
 	h := newServer().Handler()
-	cases := []struct {
-		path string
-		want int
-	}{
-		{"/healthz", http.StatusOK},
-		{"/readyz", http.StatusServiceUnavailable},
-		{"/nope", http.StatusNotFound},
+	if got := probe(t, h, "/healthz"); got != http.StatusOK {
+		t.Errorf("GET /healthz = %d, want 200", got)
 	}
-	for _, tc := range cases {
-		t.Run(tc.path, func(t *testing.T) {
-			rec := &recorder{header: http.Header{}}
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, tc.path, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			h.ServeHTTP(rec, req)
-			if rec.code != tc.want {
-				t.Fatalf("GET %s = %d, want %d", tc.path, rec.code, tc.want)
-			}
-		})
+	if got := probe(t, h, "/readyz"); got != http.StatusServiceUnavailable {
+		t.Errorf("GET /readyz = %d, want 503", got)
 	}
 }
 
-func TestServeIsReadyThenDrainsOnCancel(t *testing.T) {
+func TestAnUnknownPathIsNotFound(t *testing.T) {
+	if got := probe(t, newServer().Handler(), "/nope"); got != http.StatusNotFound {
+		t.Fatalf("GET /nope = %d, want 404", got)
+	}
+}
+
+// serving starts s on a fresh listener and returns its URL, a cancel that stops it, and what Serve
+// returned once it has.
+func serving(t *testing.T, s *server.Server) (string, context.CancelFunc, <-chan error) {
+	t.Helper()
 	ln := listen(t)
 	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
 	done := make(chan error, 1)
-	go func() { done <- newServer().Serve(ctx, ln) }()
-
+	go func() { done <- s.Serve(ctx, ln) }()
 	url := "http://" + ln.Addr().String()
 	waitFor(t, func() bool { return get(t, url+"/readyz") == http.StatusOK })
+	return url, cancel, done
+}
+
+func stopped(t *testing.T, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(15 * time.Second):
+		t.Fatal("Serve did not return after cancel")
+		return nil
+	}
+}
+
+func TestAServingServiceIsReady(t *testing.T) {
+	url, _, _ := serving(t, newServer())
 	if got := get(t, url+"/healthz"); got != http.StatusOK {
 		t.Fatalf("GET /healthz = %d, want 200", got)
 	}
+}
 
+func TestCancellingStopsTheServiceCleanly(t *testing.T) {
+	_, cancel, done := serving(t, newServer())
 	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Serve returned %v, want nil", err)
-		}
-	case <-time.After(15 * time.Second):
-		t.Fatal("Serve did not return after cancel")
+	if err := stopped(t, done); err != nil {
+		t.Fatalf("Serve = %v, want nil", err)
 	}
 }
 
-func TestServeReturnsListenerError(t *testing.T) {
+func TestARequestStillOpenWhenTheGraceRunsOutIsAnError(t *testing.T) {
+	url, cancel, done := serving(t, server.New(slog.New(slog.DiscardHandler), "test", 50*time.Millisecond))
+	var d net.Dialer
+	conn, err := d.DialContext(t.Context(), "tcp", url[len("http://"):])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	// Half a request makes the connection active, and the drain waits for it.
+	if _, err := io.WriteString(conn, "GET /healthz HTTP/1.1\r\nHost: x\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	if err := stopped(t, done); err == nil {
+		t.Fatal("Serve = nil, want the drain's deadline")
+	}
+}
+
+func TestServingOnAClosedListenerFails(t *testing.T) {
 	ln := listen(t)
 	_ = ln.Close()
 	if err := newServer().Serve(t.Context(), ln); err == nil {
 		t.Fatal("Serve on a closed listener returned nil")
 	}
 }
-
-// recorder is a minimal http.ResponseWriter, so the probe table needs no httptest.
-type recorder struct {
-	header http.Header
-	code   int
-}
-
-func (r *recorder) Header() http.Header         { return r.header }
-func (r *recorder) Write(b []byte) (int, error) { return len(b), nil }
-func (r *recorder) WriteHeader(code int)        { r.code = code }
 
 func get(t *testing.T, url string) int {
 	t.Helper()
