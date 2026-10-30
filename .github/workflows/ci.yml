@@ -65,13 +65,13 @@ jobs:
   # A skipped test whose quarantine ran out, names no issue, or lasts over 14 days fails the build
   # (workspace docs/testing-standards.md, section 7).
   quarantine:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@16d241e44f03c5cc4696d2d0de615717a61ef3c0 # v0.36.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
 
   # Comments the mutants that survive on the lines a pull request changes. A report; it never fails
   # the build, so Pipeline Complete does not wait for it.
   mutation:
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@16d241e44f03c5cc4696d2d0de615717a61ef3c0 # v0.36.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
     permissions:
       contents: read
       pull-requests: write
