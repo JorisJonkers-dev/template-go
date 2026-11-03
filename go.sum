@@ -2,6 +2,7 @@ github.com/JorisJonkers-dev/go-commons v0.2.0 h1:DeMFWpBMhTdcA9tHaPWzJHywfP1FzSL
 github.com/JorisJonkers-dev/go-commons v0.2.0/go.mod h1:brEiIn5TpwJ29VT+BugWypqjfDBf0Zos1pZ+DmYzK64=
 github.com/JorisJonkers-dev/go-commons v0.2.2 h1:1QBGzX9fE75QtLMzlJ8L7jAUIoIbHlQrhWI1X4uczvM=
 github.com/JorisJonkers-dev/go-commons v0.2.2/go.mod h1:HW1WjblTsDzTbJR9ZzmlltbU4Yk8+ZyTwS4JxQtWWjk=
+github.com/JorisJonkers-dev/go-commons v0.4.0/go.mod h1:4B3vos91IKoqD9PqI2Eow0Cy7my165ycxepLBEH8tvg=
 github.com/rillig/gobco v1.3.4 h1:4weHt9u2CyTOnEJ/7z6fAcHZvJHy1pNXm8danDh3TA8=
 github.com/rillig/gobco v1.3.4/go.mod h1:VvLaz1Pm73AQQ2JVBFWQz6BdZVSQg0YffxW3yXwEArM=
 golang.org/x/mod v0.29.0 h1:HV8lRxZC4l2cr3Zq1LvtOsi/ThTgWnUk/y64QSs8GwA=
