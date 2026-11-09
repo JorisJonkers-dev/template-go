@@ -65,18 +65,21 @@ jobs:
   # A skipped test whose quarantine ran out, names no issue, or lasts over 14 days fails the build
   # (workspace docs/testing-standards.md, section 7).
   quarantine:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/quarantine-check.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
 
   # Comments the mutants that survive on the lines a pull request changes. A report; it never fails
   # the build, so Pipeline Complete does not wait for it.
   mutation:
     if: ${{ github.event_name == 'pull_request' }}
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@ab93bf1c435304c5933ab33f9febe087ff8be214 # v0.43.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/mutation-report.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435 # v0.45.0
     permissions:
       contents: read
       pull-requests: write
     with:
       go-directory: .
+      require-package-proxy: true
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
 
   # The one required check: green only when every job above is. `always()` so a failed or
   # cancelled job still reports here, as a failure, rather than leaving the check pending.
