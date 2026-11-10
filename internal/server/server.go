@@ -72,11 +72,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if err := srv.Shutdown(drain); err != nil {
 		return err
 	}
-	if err := <-errs; err != nil {
-		return err
-	}
+	err := <-errs
 	s.logger.Info("stopped")
-	return nil
+	return err
 }
 
 func plain(w http.ResponseWriter, code int, body string) {
